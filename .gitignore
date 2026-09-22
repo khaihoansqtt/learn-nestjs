@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+tsconfig.build.tsbuildinfo
+
+# Env (giữ .env.example, bỏ .env thật)
+.env
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Coverage / test
+coverage/
+.vitest/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Docker volumes
+pgdata/
+
+# Temp
+tmp/
+temp/
