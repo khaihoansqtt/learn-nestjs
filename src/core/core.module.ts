@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigType } from '@nestjs/config';
+import { appConfig } from '../config/app.config.js';
 import { APP_INFO, type AppInfo } from './app-info.token.js';
 import { IdService } from './id.service.js';
 
@@ -12,15 +13,14 @@ import { IdService } from './id.service.js';
   providers: [
     IdService,
     {
-      // Custom provider dạng useFactory: giá trị được TẠO ĐỘNG lúc runtime,
-      // có thể inject provider khác (ở đây là ConfigService).
-      // (= Spring @Bean public AppInfo appInfo(ConfigService cfg) {...})
+      // useFactory + typed config: ConfigType<typeof appConfig> cho autocomplete
+      // và type-check thay vì get<string>('KEY') rời rạc dễ typo.
       provide: APP_INFO,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): AppInfo => ({
+      inject: [appConfig.KEY],
+      useFactory: (cfg: ConfigType<typeof appConfig>): AppInfo => ({
         name: 'shop-mini',
         version: '0.0.1',
-        nodeEnv: config.get<string>('NODE_ENV', 'development'),
+        nodeEnv: cfg.nodeEnv,
       }),
     },
   ],

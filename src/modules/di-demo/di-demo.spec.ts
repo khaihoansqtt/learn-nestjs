@@ -1,6 +1,9 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
+import { appConfig } from '../../config/app.config.js';
+import { dbConfig } from '../../config/db.config.js';
+import { validateEnv } from '../../config/env.validation.js';
 import { CoreModule } from '../../core/core.module.js';
 import { DiDemoService } from './di-demo.service.js';
 import { DiDemoModule } from './di-demo.module.js';
@@ -12,7 +15,16 @@ import { GREETING } from './tokens.js';
 describe('DiDemoService (DI)', () => {
   async function createModule(greeting: string): Promise<TestingModule> {
     return Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true }), CoreModule, DiDemoModule],
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: ['.env', '.env.example'],
+          load: [appConfig, dbConfig],
+          validate: validateEnv,
+        }),
+        CoreModule,
+        DiDemoModule,
+      ],
     })
       .overrideProvider(GREETING)
       .useValue(greeting)

@@ -1,24 +1,21 @@
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { setupApp } from './setup-app.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs: gom log lúc khởi động, flush sau khi pino logger sẵn sàng
+  // để không mất log và format đồng nhất JSON/pretty.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  setupApp(app);
 
-  // Prefix chung cho mọi API: GET /api/health thay vì /health
-  app.setGlobalPrefix('api');
-
-  // Tương đương Bean Validation + @Valid trong Spring
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // tự strip field thừa (an toàn khi đi làm)
-      forbidNonWhitelisted: true, // báo lỗi nếu client gửi field lạ
-      transform: true, // auto transform query string -> number/boolean/DTO class
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
+  // Dùng pino làm Nest Logger toàn app (thay console mặc định).
+  app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
-  await app.listen(process.env.PORT ?? 3000);
+
+  const config = app.get(ConfigService);
+  const port = config.get<number>('app.port', 3000);
+  await app.listen(port);
 }
 await bootstrap();

@@ -1,5 +1,8 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { ResponseMeta } from '../../common/decorators/response-meta.decorator.js';
 import { DiDemoService } from './di-demo.service.js';
+import { EchoBodyDto } from './echo-body.dto.js';
+import { EchoQueryDto } from './echo-query.dto.js';
 import { LifecycleService } from './lifecycle.service.js';
 import { RequestIdService } from './request-id.service.js';
 
@@ -45,5 +48,20 @@ export class DiDemoController {
   @Get('lifecycle')
   lifecycleEvents() {
     return { events: this.lifecycle.events };
+  }
+
+  // M2 demo: query DTO được validate + transform bởi ValidationPipe global.
+  // Thử: /api/di-demo/echo?limit=999 -> 400; ?hacker=1 -> 400 (forbidNonWhitelisted).
+  // @ResponseMeta gắn meta tĩnh, TransformInterceptor bọc thành { data, meta }.
+  @Get('echo')
+  @ResponseMeta({ demo: 'query-validation' })
+  echoQuery(@Query() query: EchoQueryDto) {
+    return { query };
+  }
+
+  // M2 demo: body DTO. Thử POST {"name":"a"} -> 400 (MinLength 2).
+  @Post('echo')
+  echoBody(@Body() body: EchoBodyDto) {
+    return { body };
   }
 }

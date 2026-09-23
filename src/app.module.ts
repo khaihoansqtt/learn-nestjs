@@ -1,24 +1,61 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
+import { appConfig } from './config/app.config.js';
+import { dbConfig } from './config/db.config.js';
+import { validateEnv } from './config/env.validation.js';
 import { CoreModule } from './core/core.module.js';
 import { DiDemoModule } from './modules/di-demo/di-demo.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 
 @Module({
   imports: [
-    // Tương đương application.yml + @Value trong Spring Boot.
-    // isGlobal: true để không phải import lại ở từng module con.
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
-    // @Global module: export APP_INFO + IdService cho toàn app.
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '.env.example'],
+      load: [appConfig, dbConfig],
+      validate: validateEnv,
+    }),
+    // Pino logger: JSON structured khi production, pretty khi dev, silent khi test.
+    // customProps gắn requestId vào MỌI log của request đó để trace.
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const nodeEnv = config.get<string>('app.nodeEnv', 'development');
+        const isTest = nodeEnv === 'test' || process.env.VITEST === 'true';
+        return {
+          pinoHttp: {
+            level: isTest ? 'silent' : nodeEnv === 'production' ? 'info' : 'debug',
+            transport:
+              !isTest && nodeEnv !== 'production'
+                ? { target: 'pino-pretty', options: { singleLine: true } }
+                : undefined,
+            customProps: (req) => {
+              const header = req.headers['x-request-id'];
+              return {
+                requestId: Array.isArray(header) ? header[0] : (header ?? req.id),
+              };
+            },
+          },
+        };
+      },
+    }),
     CoreModule,
     HealthModule,
-    // M1: playground DI (tokens, scopes, lifecycle, forwardRef).
-    // Khi sang M4+ module domain thật sẽ thay vị trí học tập này.
     DiDemoModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Đăng ký global bằng token APP_* (thay vì app.useGlobalX trong main.ts)
+    // để e2e test với TestingModule cũng có filter/interceptor y hệt production.
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+  ],
 })
 export class AppModule {}
