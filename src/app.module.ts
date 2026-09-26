@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -9,6 +10,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { appConfig } from './config/app.config.js';
 import { dbConfig } from './config/db.config.js';
 import { validateEnv } from './config/env.validation.js';
+import { createTypeOrmOptions } from './config/typeorm.config.js';
 import { CoreModule } from './core/core.module.js';
 import { DiDemoModule } from './modules/di-demo/di-demo.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -44,6 +46,13 @@ import { HealthModule } from './modules/health/health.module.js';
           },
         };
       },
+    }),
+    // async providers: inject dbConfig.KEY đã được Joi validate từ M2,
+    // trả về TypeOrmModuleOptions (xem createTypeOrmOptions). TypeOrmCoreModule
+    // là @Global nên DataSource inject được ở mọi module không cần forFeature.
+    TypeOrmModule.forRootAsync({
+      inject: [dbConfig.KEY],
+      useFactory: createTypeOrmOptions,
     }),
     CoreModule,
     HealthModule,

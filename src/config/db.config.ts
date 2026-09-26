@@ -6,9 +6,11 @@ export interface DbConfig {
   user: string;
   pass: string;
   name: string;
+  poolSize: number;
 }
 
-// Chuẩn bị cho M3 (TypeORM). M2 chỉ validate env, chưa kết nối.
+// Typed config cho TypeORM (xem typeorm.config.ts) — M2 chỉ validate env,
+// M3 nối vào DB thật bằng config này.
 export const dbConfig = registerAs(
   'db',
   (): DbConfig => ({
@@ -17,5 +19,6 @@ export const dbConfig = registerAs(
     user: process.env.DB_USER ?? 'shop',
     pass: process.env.DB_PASS ?? 'shop123',
     name: process.env.DB_NAME ?? 'shop_mini',
+    poolSize: parseInt(process.env.DB_POOL_SIZE ?? '10', 10),
   }),
 );

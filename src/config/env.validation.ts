@@ -18,6 +18,14 @@ const schema = Joi.object({
   DB_USER: Joi.string().required(),
   DB_PASS: Joi.string().required(),
   DB_NAME: Joi.string().required(),
+  DB_POOL_SIZE: Joi.number().integer().min(1).max(100).default(10),
+
+  // Seed admin (chỉ CLI db:seed đọc, Nest không dùng — vẫn validate để
+  // fail-fast nếu ai gõ sai port trong .env).
+  // Lưu ý: Joi .email() mặc định bắt TLD thật — 'admin@shop-mini.local' bị reject.
+  SEED_ADMIN_EMAIL: Joi.string().email().default('admin@shop-mini.dev'),
+  SEED_ADMIN_NAME: Joi.string().default('Administrator'),
+  SEED_ADMIN_PASSWORD: Joi.string().min(8).default('Admin@123'),
 });
 
 export function validateEnv(
