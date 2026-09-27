@@ -19,6 +19,8 @@ import { CoreModule } from './core/core.module.js';
 import { DiDemoModule } from './modules/di-demo/di-demo.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CategoriesModule } from './modules/categories/categories.module.js';
+import { ProductsModule } from './modules/products/products.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -65,6 +67,8 @@ import { UsersModule } from './modules/users/users.module.js';
     DiDemoModule,
     UsersModule,
     AuthModule,
+    CategoriesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [

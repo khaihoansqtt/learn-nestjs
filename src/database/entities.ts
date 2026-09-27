@@ -1,4 +1,6 @@
 import { RefreshToken } from '../modules/auth/refresh-token.entity.js';
+import { Category } from '../modules/categories/category.entity.js';
+import { Product } from '../modules/products/product.entity.js';
 import { User } from '../modules/users/user.entity.js';
 
 // DANH SÁCH ENTITY DUY NHẤT của app (single source of truth).
@@ -8,4 +10,4 @@ import { User } from '../modules/users/user.entity.js';
 // KHÔNG dùng glob pattern ('dist/**/*.entity.js') như nhiều tutorial:
 // glob dựa vào filesystem nên chạy trên dist sẽ trỏ sai khi đổi cấu trúc
 // build, và không hoạt động ổn với ESM. Import explicit = type-safe, minh bạch.
-export const ENTITIES = [User, RefreshToken];
+export const ENTITIES = [User, RefreshToken, Category, Product];

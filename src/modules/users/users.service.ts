@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { escapeLike } from '../../common/utils/escape-like.util.js';
+import { isUniqueViolation } from '../../common/utils/postgres-error.util.js';
 import { hashPassword } from './password.util.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
@@ -21,29 +23,12 @@ export interface Page<T> {
   totalPages: number;
 }
 
-// Lỗi vi phạm UNIQUE của Postgres = SQLSTATE 23505.
-// Bắt bằng code, KHÔNG so message (message đổi theo locale/version).
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    err instanceof QueryFailedError &&
-    (err as QueryFailedError & { code?: string }).code === '23505'
-  );
-}
-
 // Chuẩn hóa email TRƯỚC mọi so sánh/lưu: 'A@X.com' và 'a@x.com' là 1 người.
 // Không làm bước này -> unique index varchar (case-sensitive) cho qua 2 tài
 // khoản trùng nhau về mặt ý nghĩa. (= Spring: normalize trong service/mapper,
 // hoặc CITEXT phía DB.)
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
-}
-
-// Escape ký tự đặc biệt của LIKE (%, _, \) trong từ khóa tìm kiếm.
-// Query đã parameterized nên không SQLi, nhưng không escape thì user gõ '%'
-// sẽ match TẤT CẢ dòng (LIKE-pattern injection). Postgres LIKE mặc định
-// lấy backslash làm ký tự escape nên không cần thêm ESCAPE clause.
-export function escapeLike(raw: string): string {
-  return raw.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
 
 @Injectable()
