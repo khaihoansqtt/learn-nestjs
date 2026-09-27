@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ResponseMeta } from '../../common/decorators/response-meta.decorator.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 import { DiDemoService } from './di-demo.service.js';
 import { EchoBodyDto } from './echo-body.dto.js';
 import { EchoQueryDto } from './echo-query.dto.js';
@@ -10,6 +11,9 @@ import { RequestIdService } from './request-id.service.js';
 // nên TOÀN BỘ controller bị lan truyền thành request-scoped:
 // mỗi request tạo 1 controller mới. Đúng cho demo, nhưng trong code thật
 // hãy cân nhắc: chỉ route nào cần request-context mới tách controller riêng.
+// Di-demo là tài liệu sống để thử tay — public cả controller.
+// Code demo không mang lên prod thật (xem review M1-M4).
+@Public()
 @Controller('di-demo')
 export class DiDemoController {
   readonly controllerInstanceId = `di-demo-ctrl-${Math.random().toString(36).slice(2, 8)}`;

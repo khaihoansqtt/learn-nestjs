@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -10,21 +11,22 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import type { AuthUser } from '../auth/auth.types.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
+import { UserRole } from './user.entity.js';
 import { UsersService } from './users.service.js';
 
-// REST resource chuẩn — mapping y hệt Spring @RestController:
-//   GET    /users        -> Page<User>   (Pageable)
-//   POST   /users        -> 201 + User
-//   GET    /users/:id    -> User         (404 nếu không có)
-//   PATCH  /users/:id    -> User
-//   DELETE /users/:id    -> 200          (soft-delete)
-//   POST   /users/:id/restore -> User
-//
-// CHƯA CÓ GUARD: mọi endpoint đều công khai — đúng cho M4 (chưa học auth).
-// M5 sẽ thêm JwtAuthGuard + RolesGuard, lúc đó chỉ khai 1 dòng @UseGuards.
+// Phân quyền M5 (JwtAuthGuard + RolesGuard là APP_GUARD nên mọi route ở đây
+// mặc định CẦN đăng nhập):
+//   GET                 -> user bất kỳ (xem danh bạ)
+//   POST                -> ADMIN (tạo user với role tùy ý, kể cả admin mới)
+//   PATCH               -> ADMIN full quyền; CUSTOMER chỉ sửa CHÍNH MÌNH và
+//                          không được đụng role/isActive (ownership + RBAC)
+//   DELETE / restore    -> ADMIN
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
@@ -35,6 +37,7 @@ export class UsersController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN)
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);
   }
@@ -50,11 +53,24 @@ export class UsersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
+    @CurrentUser() me: AuthUser,
   ) {
+    // Ownership: customer sửa người khác -> 403. Admin thì qua luôn.
+    // Kể cả sửa chính mình, role/isActive cũng cấm đụng — 2 field đó chỉ
+    // admin được đổi (chống tự phong admin / tự mở khóa).
+    if (me.role !== UserRole.ADMIN) {
+      if (me.id !== id) {
+        throw new ForbiddenException('Chỉ được sửa tài khoản của chính mình');
+      }
+      if (dto.role !== undefined || dto.isActive !== undefined) {
+        throw new ForbiddenException('role/isActive chỉ admin được đổi');
+      }
+    }
     return this.users.update(id, dto);
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(200) // mặc định DELETE là 204, nhưng envelope M2 cần body -> 200
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.users.remove(id);
@@ -62,6 +78,7 @@ export class UsersController {
   }
 
   @Post(':id/restore')
+  @Roles(UserRole.ADMIN)
   restore(@Param('id', ParseUUIDPipe) id: string) {
     return this.users.restore(id);
   }

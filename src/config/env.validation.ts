@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { DEV_ACCESS_SECRET, DEV_REFRESH_SECRET } from './auth.config.js';
 
 // Validate env lúc startup — sai là crash NGAY với message rõ ràng (fail-fast),
 // thay vì chạy nửa chừng mới lỗi kết nối DB.
@@ -19,6 +20,17 @@ const schema = Joi.object({
   DB_PASS: Joi.string().required(),
   DB_NAME: Joi.string().required(),
   DB_POOL_SIZE: Joi.number().integer().min(1).max(100).default(10),
+
+  // Auth JWT (M5). Secret min 32 ký tự — secret ngắn thì brute-force được,
+  // ký bằng secret yếu coi như không ký. Dev có default để clone là chạy;
+  // auth.config.ts sẽ throw nếu mang default đó lên production.
+  JWT_ACCESS_SECRET: Joi.string().min(32).default(DEV_ACCESS_SECRET),
+  JWT_REFRESH_SECRET: Joi.string().min(32).default(DEV_REFRESH_SECRET),
+  JWT_ACCESS_TTL_SEC: Joi.number().integer().min(60).default(900),
+  JWT_REFRESH_TTL_SEC: Joi.number()
+    .integer()
+    .min(3600)
+    .default(604800),
 
   // Seed admin (chỉ CLI db:seed đọc, Nest không dùng — vẫn validate để
   // fail-fast nếu ai gõ sai port trong .env).

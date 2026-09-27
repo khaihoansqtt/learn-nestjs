@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Logger, ServiceUnavailableException } from '@n
 import { DataSource } from 'typeorm';
 import { APP_INFO, type AppInfo } from '../../core/app-info.token.js';
 import { IdService } from '../../core/id.service.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 
 // Bẫy thực tế: khi TCP connect fail, Node ném AggregateError (thử ::1 rồi
 // 127.0.0.1) và AggregateError.message là '' — trả thẳng ra client sẽ thành
@@ -15,6 +16,9 @@ export function describeError(err: unknown): string {
   return err.name || 'database unreachable';
 }
 
+// Health check phải public: load balancer / k8s probe gọi liên tục,
+// không thể đính token vào probe.
+@Public()
 @Controller('health')
 export class HealthController {
   // Logger của @nestjs/common (KHÔNG phải nestjs-pino — class đó cần

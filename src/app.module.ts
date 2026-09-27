@@ -11,12 +11,14 @@ import { AppService } from './app.service.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { appConfig } from './config/app.config.js';
+import { authConfig } from './config/auth.config.js';
 import { dbConfig } from './config/db.config.js';
 import { validateEnv } from './config/env.validation.js';
 import { createTypeOrmOptions } from './config/typeorm.config.js';
 import { CoreModule } from './core/core.module.js';
 import { DiDemoModule } from './modules/di-demo/di-demo.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -24,7 +26,7 @@ import { UsersModule } from './modules/users/users.module.js';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '.env.example'],
-      load: [appConfig, dbConfig],
+      load: [appConfig, dbConfig, authConfig],
       validate: validateEnv,
     }),
     // Pino logger: JSON structured khi production, pretty khi dev, silent khi test.
@@ -62,6 +64,7 @@ import { UsersModule } from './modules/users/users.module.js';
     HealthModule,
     DiDemoModule,
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
