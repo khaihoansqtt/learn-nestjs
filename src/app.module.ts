@@ -1,4 +1,7 @@
-import { Module } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  Module,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -14,6 +17,7 @@ import { createTypeOrmOptions } from './config/typeorm.config.js';
 import { CoreModule } from './core/core.module.js';
 import { DiDemoModule } from './modules/di-demo/di-demo.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -57,6 +61,7 @@ import { HealthModule } from './modules/health/health.module.js';
     CoreModule,
     HealthModule,
     DiDemoModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -64,6 +69,10 @@ import { HealthModule } from './modules/health/health.module.js';
     // Đăng ký global bằng token APP_* (thay vì app.useGlobalX trong main.ts)
     // để e2e test với TestingModule cũng có filter/interceptor y hệt production.
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    // ClassSerializerInterceptor chạy instanceToPlain lên response entity
+    // TRƯỚC khi TransformInterceptor bọc envelope -> @Exclude/@Expose có hiệu lực.
+    // (= Spring MappingJackson2HttpMessageConverter + @JsonIgnore)
+    { provide: APP_INTERCEPTOR, useClass: ClassSerializerInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
   ],
 })

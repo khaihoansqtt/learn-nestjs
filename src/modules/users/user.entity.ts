@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer';
 import { Column, DeleteDateColumn, Entity, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity.js';
 
@@ -18,6 +19,11 @@ export class User extends BaseEntity {
   email!: string;
 
   // Format: scrypt$<salt>$<hash> (xem password.util.ts). M5 sẽ verify.
+  //
+  // select:false: mọi find() mặc định KHÔNG load cột này.
+  // @Exclude: phòng thủ tầng 2 — kể cả khi service chủ động addSelect() rồi
+  // trả entity ra API, ClassSerializerInterceptor cũng loại nó khỏi JSON.
+  @Exclude()
   @Column({ type: 'varchar', length: 255, select: false })
   passwordHash!: string;
 
