@@ -14,7 +14,8 @@ export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 @Entity('users')
 @Index('UQ_users_email', ['email'], { unique: true })
 export class User extends BaseEntity {
-  // unique:true -> TypeORM sinh unique constraint; KHỚP với index trong migration.
+  // Unique qua @Index (KHÔNG phải unique:true trên @Column) để TÊN index
+  // được chốt là "UQ_users_email" — migration tạo đúng tên đó nên 2 bên khớp.
   @Column({ type: 'varchar', length: 255 })
   email!: string;
 
@@ -36,9 +37,10 @@ export class User extends BaseEntity {
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 
-  // Soft-delete (= @SQLDelete + @Where của Hibernate). TypeORM tự set khi .remove()
-  // và TỰ động thêm "deletedAt IS NULL" vào mọi query find*. Muốn đọc bản đã
-  // xóa: withDeleted(). NPP.@DeleteDateColumn
+  // Soft-delete (= @SQLDelete + @Where của Hibernate). repo.softDelete() /
+  // repo.softRemove() set deletedAt, còn repo.remove()/repo.delete() là XÓA CỨNG.
+  // TypeORM TỰ thêm "deletedAt IS NULL" vào mọi query find*. Muốn đọc bản đã
+  // xóa: withDeleted().
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 }

@@ -10,7 +10,9 @@ export class CreateUserDto {
 
   @IsString()
   @MinLength(8, { message: 'password phải ít nhất 8 ký tự' })
-  @MaxLength(72)
+  // 128 là trần chống DoS CPU (scrypt tốn CPU theo input), KHÔNG phải giới
+  // hạn thuật toán — scrypt nhận input dài tùy ý (khác bcrypt kẹt ở 72 byte).
+  @MaxLength(128)
   password!: string;
 
   @IsString()

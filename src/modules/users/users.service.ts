@@ -9,7 +9,7 @@ import { hashPassword } from './password.util.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { ListUsersDto } from './dto/list-users.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
-import { User } from './user.entity.js';
+import { User, UserRole } from './user.entity.js';
 
 // Trang dữ liệu trả về API — map 1-1 với Page<T> của Spring Data
 // (items ~ content, total ~ totalElements, totalPages ~ totalPages).
@@ -28,6 +28,22 @@ function isUniqueViolation(err: unknown): boolean {
     err instanceof QueryFailedError &&
     (err as QueryFailedError & { code?: string }).code === '23505'
   );
+}
+
+// Chuẩn hóa email TRƯỚC mọi so sánh/lưu: 'A@X.com' và 'a@x.com' là 1 người.
+// Không làm bước này -> unique index varchar (case-sensitive) cho qua 2 tài
+// khoản trùng nhau về mặt ý nghĩa. (= Spring: normalize trong service/mapper,
+// hoặc CITEXT phía DB.)
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+// Escape ký tự đặc biệt của LIKE (%, _, \) trong từ khóa tìm kiếm.
+// Query đã parameterized nên không SQLi, nhưng không escape thì user gõ '%'
+// sẽ match TẤT CẢ dòng (LIKE-pattern injection). Postgres LIKE mặc định
+// lấy backslash làm ký tự escape nên không cần thêm ESCAPE clause.
+export function escapeLike(raw: string): string {
+  return raw.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
 
 @Injectable()
@@ -50,7 +66,7 @@ export class UsersService {
     if (query.includeDeleted) qb.withDeleted();
     if (query.q) {
       qb.andWhere('(user.email ILIKE :q OR user.fullName ILIKE :q)', {
-        q: `%${query.q}%`,
+        q: `%${escapeLike(query.q)}%`,
       });
     }
     if (query.role) qb.andWhere('user.role = :role', { role: query.role });
@@ -84,24 +100,31 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<User> {
+    // Normalize TRƯỚC check trùng — nếu không 'A@x.com' qua mặt được check
+    // rồi đâm vào 23505 (vẫn 409 đúng, nhưng message kém + tốn 1 query lỗi).
+    const email = normalizeEmail(dto.email);
+    const fullName = dto.fullName.trim();
+
     // Check trước để trả message thân thiện, check lại bằng index unique
     // (23505) vì giữa 2 dòng này vẫn có race.
-    const exists = await this.repo.findOne({ where: { email: dto.email } });
-    if (exists) throw new ConflictException(`email ${dto.email} đã tồn tại`);
+    const exists = await this.repo.findOne({ where: { email } });
+    if (exists) throw new ConflictException(`email ${email} đã tồn tại`);
 
     try {
       // KHÔNG BAO GIỜ lưu password plaintext — hash ngay ở service layer.
+      // role ?? CUSTOMER tường minh: không ỷ vào chuyện TypeORM bỏ qua
+      // undefined để DB default nhảy vào (hành vi ORM, không phải hợp đồng).
       return await this.repo.save(
         this.repo.create({
-          email: dto.email,
-          fullName: dto.fullName,
-          role: dto.role,
+          email,
+          fullName,
+          role: dto.role ?? UserRole.CUSTOMER,
           passwordHash: hashPassword(dto.password),
         }),
       );
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(`email ${dto.email} đã tồn tại`);
+        throw new ConflictException(`email ${email} đã tồn tại`);
       }
       throw err;
     }
@@ -110,19 +133,21 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id); // đã 404 nếu không có
 
-    if (dto.email !== undefined && dto.email !== user.email) {
-      const taken = await this.repo.findOne({ where: { email: dto.email } });
+    if (dto.email !== undefined && normalizeEmail(dto.email) !== user.email) {
+      const emailTaken = normalizeEmail(dto.email);
+      const taken = await this.repo.findOne({ where: { email: emailTaken } });
       if (taken && taken.id !== id) {
-        throw new ConflictException(`email ${dto.email} đã tồn tại`);
+        throw new ConflictException(`email ${emailTaken} đã tồn tại`);
       }
     }
 
     // Merge thủ công field cho phép — KHÔNG Object.assign(dto) vì UpdateUserDto
     // có thể chứa field không nên ghi đè (mảng whitelist = chống mass-assignment
     // ở tầng service, phòng khi quên ValidationPipe).
-    if (dto.email !== undefined) user.email = dto.email;
-    if (dto.fullName !== undefined) user.fullName = dto.fullName;
+    if (dto.email !== undefined) user.email = normalizeEmail(dto.email);
+    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
     if (dto.role !== undefined) user.role = dto.role;
+    if (dto.isActive !== undefined) user.isActive = dto.isActive;
     if (dto.password !== undefined) user.passwordHash = hashPassword(dto.password);
 
     try {
@@ -147,7 +172,8 @@ export class UsersService {
     if (!deleted) throw new NotFoundException(`user ${id} không tồn tại`);
     if (!deleted.deletedAt) return deleted; // idempotent: chưa xóa thì thôi
     await this.repo.restore({ id });
-    deleted.deletedAt = null;
-    return deleted;
+    // Đọc lại từ DB thay vì trả object cũ (tránh stale nếu sau này restore
+    // chạm thêm cột, trigger, hoặc concurrent update chen giữa).
+    return (await this.repo.findOne({ where: { id } }))!;
   }
 }

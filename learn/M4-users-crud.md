@@ -44,7 +44,7 @@ test/users.e2e-spec.ts    # 11 e2e tests (DB thật)
 | GET | `/api/users` | `Page<User>` | phân trang + filter + sort |
 | POST | `/api/users` | 201 `User` | 409 nếu email trùng |
 | GET | `/api/users/:id` | `User` | 400 nếu không phải UUID, 404 nếu không có |
-| PATCH | `/api/users/:id` | `User` | merge từng field tường minh |
+| PATCH | `/api/users/:id` | `User` | merge từng field tường minh (+ `isActive` để khóa/mở) |
 | DELETE | `/api/users/:id` | `{id, deleted: true, soft: true}` | **soft**-delete |
 | POST | `/api/users/:id/restore` | `User` | khôi phục, idempotent |
 
@@ -66,6 +66,11 @@ curl "http://127.0.0.1:3000/api/users?page=1&limit=10&q=khai&role=customer&sort=
    từ query vào `ORDER BY` (SQL injection).
 2. **Boolean query param**: `enableImplicitConversion` biến `"false"` -> `true`
    (`Boolean('false') === true`). Dùng `@Transform(({value}) => value === 'true')`.
+3. **`q` phải escape LIKE** (`escapeLike()`): query đã parameterized nên không SQLi,
+   nhưng `%`/`_` trong từ khóa sẽ thành wildcard match tất cả (LIKE-pattern injection).
+4. **Email normalize** (`normalizeEmail()` trong service): `A@X.com` và `a@x.com`
+   là 1 người — unique index varchar case-sensitive sẽ cho qua 2 tài khoản trùng
+   nghĩa nếu không lowercase+trim trước check và lưu.
 3. `qb.skip((page-1)*limit).take(limit)` = `OFFSET/LIMIT`, `getManyAndCount()`
    chạy 2 query (data + count) trong 1 lệnh.
 

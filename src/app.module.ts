@@ -69,8 +69,10 @@ import { UsersModule } from './modules/users/users.module.js';
     // Đăng ký global bằng token APP_* (thay vì app.useGlobalX trong main.ts)
     // để e2e test với TestingModule cũng có filter/interceptor y hệt production.
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
-    // ClassSerializerInterceptor chạy instanceToPlain lên response entity
-    // TRƯỚC khi TransformInterceptor bọc envelope -> @Exclude/@Expose có hiệu lực.
+    // Thứ tự interceptor: đăng ký trước = NGOÀI CÙNG (xem InterceptorsConsumer:
+    // interceptors[0].intercept chạy đầu, map() của nó chạy CUỐI).
+    // Response đi: handler -> Transform bọc {data} -> ClassSerializer serialize
+    // CUỐI, đệ quy vào trong data nên @Exclude vẫn dính dù entity nằm sâu.
     // (= Spring MappingJackson2HttpMessageConverter + @JsonIgnore)
     { provide: APP_INTERCEPTOR, useClass: ClassSerializerInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

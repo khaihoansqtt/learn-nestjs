@@ -177,5 +177,59 @@ describe('UsersService', () => {
       await service.restore('id-1');
       expect(repo.restore).not.toHaveBeenCalled();
     });
+
+    it('restore bản đã xóa -> gọi restore rồi ĐỌC LẠI từ DB (không trả object cũ)', async () => {
+      const stale = { id: 'id-1', deletedAt: new Date('2026-01-01') };
+      const fresh = { id: 'id-1', deletedAt: null };
+      repo.findOne
+        .mockResolvedValueOnce(stale) // lần 1: withDeleted -> thấy bản đã xóa
+        .mockResolvedValueOnce(fresh); // lần 2: đọc lại sau restore
+      const result = await service.restore('id-1');
+      expect(repo.restore).toHaveBeenCalledWith({ id: 'id-1' });
+      expect(repo.findOne).toHaveBeenCalledTimes(2);
+      expect(result).toBe(fresh);
+    });
+  });
+
+  describe('normalize + escape (review M1-M4)', () => {
+    it('create chuẩn hóa email hoa/thừa khoảng trắng trước khi lưu', async () => {
+      await service.create({
+        email: '  KHAI@Shop.Dev ',
+        password: 'MatKhau@123',
+        fullName: '  Khai Hoan  ',
+      });
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'khai@shop.dev',
+          fullName: 'Khai Hoan',
+        }),
+      );
+    });
+
+    it('create check trùng bằng email ĐÃ normalize', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await service.create({
+        email: 'A@X.COM',
+        password: 'MatKhau@123',
+        fullName: 'Ab',
+      });
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { email: 'a@x.com' },
+      });
+    });
+
+    it("q chứa '%' '_' -> escape, không match tất cả", async () => {
+      const query = Object.assign(new ListUsersDto(), { q: '100%_x' });
+      await service.findAll(query);
+      const [, params] = qb.andWhere.mock.calls[0] as [string, object];
+      expect(params).toEqual({ q: '%100\\%\\_x%' });
+    });
+
+    it('update isActive=false (khóa tài khoản không cần xóa)', async () => {
+      const user = { id: 'id-1', email: 'a@b.c', isActive: true };
+      repo.findOne.mockResolvedValue(user);
+      const saved = await service.update('id-1', { isActive: false });
+      expect(saved.isActive).toBe(false);
+    });
   });
 });
